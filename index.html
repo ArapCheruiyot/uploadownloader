@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Drive File Uploader</title>
+    <title>Google Drive File Uploader & Downloader</title>
     <style>
-        /* Styles remain unchanged */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -86,44 +85,20 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        .delete-button {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        .delete-button:hover {
-            background: #c0392b;
-        }
         footer {
             text-align: center;
             margin-top: 20px;
             font-size: 0.9em;
             color: #777;
         }
-        /* Progress bar styles */
-        .progress-container {
-            width: 100%;
-            background-color: #f3f3f3;
-            border-radius: 4px;
-            margin-top: 20px;
-        }
-        .progress-bar {
-            width: 0;
-            height: 20px;
-            background-color: #4CAF50;
-            border-radius: 4px;
-        }
     </style>
 </head>
 <body>
     <header>
-        <h1>Google Drive File Uploader</h1>
+        <h1>Google Drive File Uploader & Downloader</h1>
     </header>
     <main>
-        <h1>Upload Files Easily</h1>
+        <h1>Upload & Download Files Easily</h1>
         <button id="authorize_button" class="button" style="display: none;" onclick="handleAuthClick()">Authorize Access</button>
         <button id="signout_button" class="button" style="display: none;" onclick="handleSignoutClick()">Sign Out</button>
 
@@ -133,11 +108,8 @@
             <ul id="file_list" class="file-list"></ul>
             <button class="button" onclick="uploadFiles()">Upload Files</button>
             <p class="notice">Note: Only Excel files (.xlsx, .xls) are allowed. You can select multiple files.</p>
-            
-            <!-- Progress bar container -->
-            <div class="progress-container">
-                <div id="progress_bar" class="progress-bar"></div>
-            </div>
+            <button class="button" onclick="listFiles()">List & Download Files</button>
+            <ul id="download_list" class="file-list"></ul>
         </div>
     </main>
     <footer>
@@ -147,26 +119,26 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
         const CLIENT_ID = '361306676979-daeqed946lct73e84fu6t16i38u2ialv.apps.googleusercontent.com';
-        const API_KEY = 'YOUR_API_KEY';
+        const API_KEY = 'YOUR_API_KEY'; // Replace with your actual API Key
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
         let tokenClient;
         let gapiInited = false;
         let gisInited = false;
-        let selectedFiles = [];
 
         function gapiLoaded() {
             gapi.load('client', initializeGapiClient);
         }
 
         async function initializeGapiClient() {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: DISCOVERY_DOCS,
-            });
-            gapiInited = true;
-            maybeEnableButtons();
+            try {
+                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
+                gapiInited = true;
+                maybeEnableButtons();
+            } catch (error) {
+                console.error('Error initializing GAPI client:', error);
+            }
         }
 
         function gisLoaded() {
@@ -188,7 +160,8 @@
         function handleAuthClick() {
             tokenClient.callback = async (resp) => {
                 if (resp.error) {
-                    throw (resp);
+                    console.error('Error during authorization:', resp);
+                    return;
                 }
                 document.getElementById('authorize_button').style.display = 'none';
                 document.getElementById('signout_button').style.display = 'block';
@@ -207,82 +180,71 @@
             if (token !== null) {
                 google.accounts.oauth2.revoke(token.access_token);
                 gapi.client.setToken('');
-                document.getElementById('authorize_button').style.display = 'block';
-                document.getElementById('signout_button').style.display = 'none';
-                document.getElementById('uploadSection').style.display = 'none';
             }
+            document.getElementById('signout_button').style.display = 'none';
+            document.getElementById('authorize_button').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'none';
         }
 
         function handleFileSelection() {
-            const fileInput = document.getElementById('file_input');
-            selectedFiles = Array.from(fileInput.files);
+            const files = document.getElementById('file_input').files;
             const fileList = document.getElementById('file_list');
             fileList.innerHTML = '';
-            selectedFiles.forEach(file => {
-                const li = document.createElement('li');
-                li.textContent = file.name;
-                fileList.appendChild(li);
-            });
+            for (let file of files) {
+                const listItem = document.createElement('li');
+                listItem.textContent = file.name;
+                fileList.appendChild(listItem);
+            }
         }
 
         async function uploadFiles() {
-    if (!selectedFiles.length) {
-        alert('Please select at least one file to upload.');
-        return;
-    }
-
-    const folderId = '1rSxY5C7YCGFS1mpwlAckQQuBTAn8OQH-'; // Replace with your folder ID
-
-    let uploadedFilesCount = 0;
-
-    for (let file of selectedFiles) {
-        const metadata = {
-            'name': file.name,
-            'mimeType': file.type || 'application/octet-stream',
-            'parents': [folderId],
-        };
-        const accessToken = gapi.auth.getToken().access_token;
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', file);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', true);
-        xhr.setRequestHeader('Authorization', 'Bearer ' + accessToken);
-
-        // Track upload progress
-        xhr.upload.onprogress = function (event) {
-            if (event.lengthComputable) {
-                const percent = (event.loaded / event.total) * 100;
-                document.getElementById('progress_bar').style.width = percent + '%';
+            const files = document.getElementById('file_input').files;
+            if (files.length === 0) {
+                alert('Please select files to upload.');
+                return;
             }
-        };
+            for (let file of files) {
+                const metadata = { 'name': file.name, 'mimeType': file.type };
+                const formData = new FormData();
+                formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                formData.append('file', file);
 
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                uploadedFilesCount++;
-                console.log(File "${file.name}" uploaded successfully.);
-                // Check if all files have been uploaded
-                if (uploadedFilesCount === selectedFiles.length) {
-                    document.getElementById('progress_bar').style.width = '100%';
-                    alert('All files uploaded successfully.');
-                    selectedFiles = [];
-                    document.getElementById('file_list').innerHTML = '';
-                    document.getElementById('progress_bar').style.width = '0'; // Reset progress bar
+                try {
+                    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: new Headers({ 'Authorization': 'Bearer ' + gapi.client.getToken().access_token }),
+                        body: formData,
+                    });
+                    if (response.ok) {
+                        alert(`File uploaded: ${file.name}`);
+                    } else {
+                        alert(`Failed to upload file: ${file.name}`);
+                    }
+                } catch (error) {
+                    console.error(`Error uploading file ${file.name}:`, error);
                 }
-            } else {
-                console.error(Error uploading file "${file.name}".);
             }
-        };
+        }
 
-        xhr.onerror = function () {
-            console.error(Error uploading file "${file.name}".);
-        };
-
-        xhr.send(form);
-    }
-}
-
+        async function listFiles() {
+            try {
+                const response = await gapi.client.drive.files.list({ pageSize: 10, fields: 'files(id, name)' });
+                const files = response.result.files;
+                const downloadList = document.getElementById('download_list');
+                downloadList.innerHTML = '';
+                if (!files || files.length === 0) {
+                    downloadList.innerHTML = '<li>No files found.</li>';
+                    return;
+                }
+                files.forEach(file => {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `${file.name} <a href="https://drive.google.com/uc?id=${file.id}" target="_blank">Download</a>`;
+                    downloadList.appendChild(listItem);
+                });
+            } catch (error) {
+                console.error('Error listing files:', error);
+            }
+        }
     </script>
 </body>
 </html>
