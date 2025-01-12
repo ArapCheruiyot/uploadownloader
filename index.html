@@ -99,16 +99,16 @@
     </header>
     <main>
         <h1>Upload & Download Files Easily</h1>
-        <button id="authorize_button" class="button" style="display: none;" aria-label="Authorize Access" onclick="handleAuthClick()">Authorize Access</button>
-        <button id="signout_button" class="button" style="display: none;" aria-label="Sign Out" onclick="handleSignoutClick()">Sign Out</button>
+        <button id="authorize_button" class="button" style="display: none;" onclick="handleAuthClick()">Authorize Access</button>
+        <button id="signout_button" class="button" style="display: none;" onclick="handleSignoutClick()">Sign Out</button>
 
         <div id="uploadSection">
             <label for="file_input">Select Excel files to upload:</label>
             <input type="file" id="file_input" multiple accept=".xlsx, .xls" onchange="handleFileSelection()">
             <ul id="file_list" class="file-list"></ul>
-            <button class="button" onclick="uploadFiles()" aria-label="Upload Files">Upload Files</button>
+            <button class="button" onclick="uploadFiles()">Upload Files</button>
             <p class="notice">Note: Only Excel files (.xlsx, .xls) are allowed. You can select multiple files.</p>
-            <button class="button" onclick="listFiles()" aria-label="List Files">List & Download Files</button>
+            <button class="button" onclick="listFiles()">List & Download Files</button>
             <ul id="download_list" class="file-list"></ul>
         </div>
     </main>
@@ -119,7 +119,7 @@
     <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <script>
         const CLIENT_ID = '361306676979-daeqed946lct73e84fu6t16i38u2ialv.apps.googleusercontent.com';
-        const API_KEY = 'YOUR_API_KEY'; // Replace with your actual API key
+        const API_KEY = 'YOUR_API_KEY';
         const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
         const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
@@ -133,10 +133,7 @@
 
         async function initializeGapiClient() {
             try {
-                await gapi.client.init({
-                    apiKey: API_KEY,
-                    discoveryDocs: DISCOVERY_DOCS,
-                });
+                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: DISCOVERY_DOCS });
                 gapiInited = true;
                 maybeEnableButtons();
             } catch (error) {
@@ -207,10 +204,7 @@
                 return;
             }
             for (let file of files) {
-                const metadata = {
-                    'name': file.name,
-                    'mimeType': file.type,
-                };
+                const metadata = { 'name': file.name, 'mimeType': file.type };
                 const formData = new FormData();
                 formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
                 formData.append('file', file);
@@ -234,10 +228,7 @@
 
         async function listFiles() {
             try {
-                const response = await gapi.client.drive.files.list({
-                    pageSize: 10,
-                    fields: 'files(id, name)',
-                });
+                const response = await gapi.client.drive.files.list({ pageSize: 10, fields: 'files(id, name)' });
                 const files = response.result.files;
                 const downloadList = document.getElementById('download_list');
                 downloadList.innerHTML = '';
